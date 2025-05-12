@@ -36,7 +36,8 @@ class TradingState:
         logger.info(f"Daily reset: Initial balance {self.initial_daily_balance:.2f} USD. Daily loss cleared.")
 
     def add_order(self, order_details: dict):
-        self.open_orders.append(order        logger.debug(f"Added order {order_details.get('id')} to open orders. Current count: {len(self.open_orders)}")
+        self.open_orders.append(order_details)
+        logger.debug(f"Added order {order_details.get('id')} to open orders. Current count: {len(self.open_orders)}")
 
     def remove_order(self, order: dict):
         try:

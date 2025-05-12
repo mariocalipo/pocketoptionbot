@@ -56,13 +56,16 @@ async def reconnect(client: PocketOption, max_attempts: int = 5) -> bool:
             success = client.connect()
             if success:
                 logger.info("Reconnection successful!")
-                balance = client.get_balance()
-                account_type = "Demo" if global_value.DEMO else "Real"
-                if balance is not None:
-                    logger.info(f"Account balance ({account_type}) after reconnection: {balance:.2f} USD")
-                else:
-                    logger.warning("Balance not updated after reconnection")
-                return True
+                # Wait for balance update
+                for _ in range(5):
+                    balance = client.get_balance()
+                    if balance is not None:
+                        account_type = "Demo" if global_value.DEMO else "Real"
+                        logger.info(f"Account balance ({account_type}) after reconnection: {balance:.2f} USD")
+                        return True
+                    await asyncio.sleep(2)
+                logger.warning("Balance not updated after reconnection")
+                return False
             logger.warning(f"Reconnection attempt {attempt} failed")
         except Exception as e:
             logger.error(f"Error during reconnection attempt {attempt}: {e}", exc_info=False)
@@ -84,7 +87,6 @@ async def main():
 
     max_init_attempts = 5
     init_attempt = 1
-    init_delay = 5
     connected = False
 
     while init_attempt <= max_init_attempts and not connected:
@@ -93,7 +95,16 @@ async def main():
             success = client.connect()
             if success:
                 logger.info("Connection established successfully!")
-                connected = True
+                # Wait for balance update
+                for _ in range(5):
+                    balance = client.get_balance()
+                    if balance is not None:
+                        connected = True
+                        break
+                    logger.debug("Waiting for balance update...")
+                    await asyncio.sleep(2)
+                if not connected:
+                    logger.warning("Balance not updated after connection")
             else:
                 logger.error(f"Connection attempt {init_attempt} failed")
         except Exception as e:

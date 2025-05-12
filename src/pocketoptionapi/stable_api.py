@@ -42,8 +42,8 @@ class PocketOption:
         self.get_realtime_strike_list_temp_data = {}
         self.get_realtime_strike_list_temp_expiration = 0
         self.SESSION_HEADER = {
-            "User-Agent": r"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                          r"Chrome/66.0.3359.139 Safari/537.36"}
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        }
         self.SESSION_COOKIE = {}
         self.api = PocketOptionAPI()
         self.loop = asyncio.get_event_loop()
@@ -62,13 +62,15 @@ class PocketOption:
         self.SESSION_COOKIE = cookie
 
     def get_async_order(self, buy_order_id):
-        if self.api.order_async["deals"][0]["id"] == buy_order_id:
-            return self.api.order_async["deals"][0]
-        else:
-            return None
+        if self.api.order_async and "deals" in self.api.order_async and self.api.order_async["deals"]:
+            if self.api.order_async["deals"][0]["id"] == buy_order_id:
+                return self.api.order_async["deals"][0]
+        return None
 
     def get_async_order_id(self, buy_order_id):
-        return self.api.order_async["deals"][0][buy_order_id]
+        if self.api.order_async and "deals" in self.api.order_async and self.api.order_async["deals"]:
+            return self.api.order_async["deals"][0][buy_order_id]
+        return None
 
     def start_async(self):
         asyncio.run(self.api.connect())
@@ -94,17 +96,23 @@ class PocketOption:
             logging.error(f"Error during disconnect: {e}")
 
     def connect(self):
+        if not global_value.SSID:
+            logging.error("No SSID provided. Cannot connect.")
+            return False
         try:
             websocket_thread = threading.Thread(target=self.api.connect, daemon=True)
             websocket_thread.start()
-            time.sleep(1)  # Give the thread time to establish connection
+            time.sleep(3)  # Increased delay to allow connection and authentication
             if global_value.websocket_is_connected:
+                logging.info("WebSocket connection established successfully")
+                # Request balance update
+                self.api.send_websocket_request("get_balances", {"requestId": "balance_request"}, no_force_send=True)
                 return True
             else:
                 logging.warning("WebSocket connection not established")
                 return False
         except Exception as e:
-            logging.error(f"Error al conectar: {e}")
+            logging.error(f"Error connecting: {e}")
             return False
 
     def GetPayout(self, pair):
@@ -128,6 +136,8 @@ class PocketOption:
             return global_value.balance
         else:
             logging.warning("Balance not updated")
+            # Request balance update
+            self.api.send_websocket_request("get_balances", {"requestId": "balance_request"}, no_force_send=True)
             return None
 
     @staticmethod
